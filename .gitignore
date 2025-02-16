@@ -23,3 +23,12 @@
 /app/Config/core.php
 /app/Config/database.php
 /vendors/*
+
+
+#sped-nfe
+/sped-nfe/*
+
+
+#chave -certificado
+chave.pfx
+*.pfx
