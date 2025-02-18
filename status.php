@@ -39,7 +39,7 @@ try {
     // Carrega o conteúdo do certificado digital no formato PFX
     $certificado = file_get_contents('chave.pfx');
     // Define a senha do certificado digital
-    $password = '';//password
+    $password = '207100';//password
     // Lê o certificado PFX usando a classe Certificate
     $certificate = Certificate::readPfx($certificado, $password);
     // Inicializa a classe Tools com as configurações e certificado
