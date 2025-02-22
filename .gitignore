@@ -32,3 +32,6 @@
 #chave -certificado
 chave.pfx
 *.pfx
+.env
+certificado.pfx
+chave.pfx

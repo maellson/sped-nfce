@@ -18,36 +18,34 @@ use NFePHP\NFe\Common\Standardize;
 
 try {
 
-     // Cria um JSON com as configurações necessárias para o serviço da NFe
-     $configJson = json_encode([
-        "atualizacao" => "2015-10-02 06:01:21", // Data de atualização do schema
-        "tpAmb" => 2, // Ambiente de homologação (2) ou produção (1)
-        "razaosocial" => "Manalyticsai Ltda", // Razão social da empresa
-        "siglaUF" => "PB", // Sigla do estado
-        "cnpj" => "52463011000101", // CNPJ da empresa
-        "schemes" => "PL_008i2", // Versão do esquema XML
-        "versao" => "4.00", // Versão da NF-e
-        "tokenIBPT" => "AAAAAAA", // Token para consultas IBPT
-        "CSC" => "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G", // Código de segurança do contribuinte
-        "CSCid" => "000002", // Identificador do CSC
-        "aProxyConf" =>[ // Configuração de proxy (caso exista)
-            "proxyIp" => "",
-            "proxyPort" =>"",
+    $config = [
+        "atualizacao" => (new \DateTime())->format('Y-m-d\TH:i:sP'),
+        "tpAmb"       => 2, //Homologação
+        "razaosocial" => "ALUSKA VANESSA BARBOSA DE OLIVEIRA",
+        "cnpj"        => "37715148000112",
+        "ie"          => '163700044',
+        "siglaUF"     => "PB",
+        "schemes"     => "PL_009_V4",
+        "versao"      => '4.00',
+        "tokenIBPT"   => "AAAAAAA",
+        "CSC"         => "4AC2A781-AC41-BF54-5E1A-7BBFA3BF7E37",
+        "CSCid"       => "000002",
+        "proxyConf"   => [
+            "proxyIp"   => "",
+            "proxyPort" => "",
             "proxyUser" => "",
-            "proxyPass" => "",
-       ]
-        ]);
+            "proxyPass" => ""
+        ]
+    ];
+    $configJson = json_encode($config);
+    $pfxcontent = file_get_contents('certificado.pfx');
+    $password = '';
+    
+    $tools = new Tools($configJson, Certificate::readPfx($pfxcontent, $password));
+    //$tools->disableCertValidation(true); //tem que desabilitar
+    $tools->model('65'); //65 NFCe
 
-    // Carrega o conteúdo do certificado digital no formato PFX
-    $certificado = file_get_contents('chave.pfx');
-    // Define a senha do certificado digital
-    $password = '207100';//password
-
-    $certificate = Certificate::readPfx($certificado, $password);
-    $tools = new Tools($configJson, $certificate);
-    $tools->model('65');
-
-    $chave = '25250224914819000122650020000476951179778078';
+    $chave = '25250237715148000112650010000020251000010019';//'25250224914819000122650020000476951179778078';
     $response = $tools->sefazConsultaChave($chave);
 
     //você pode padronizar os dados de retorno atraves da classe abaixo

@@ -1,123 +1,133 @@
 <?php
 
-//Define o diretório temporário para armazenar arquivos temporários
+// Define o diretório temporário para arquivos temporários
 putenv('TMPDIR=' . __DIR__ . '/tmp');
+
+// Configurações de exibição de erros
 error_reporting(E_ALL);
-ini_set('display_errors', 'On');
+ini_set('display_errors', 'on');
+
+// Carrega as dependências do Composer
 require_once 'vendor/autoload.php';
 
 use NFePHP\NFe\Tools;
 use NFePHP\NFe\Make;
 use NFePHP\Common\Certificate;
-use NFePHP\Common\Soap\SoapFake;
 use NFePHP\NFe\Common\Standardize;
 use NFePHP\NFe\Complements;
 
-$arr = [
-    "atualizacao" => "2017-02-20 09:11:21",
-    "tpAmb"       => 2, //Homologação
-    "razaosocial" => "MANALYTICS INTELIGENCIA ARTIFICIAL LTDA",
-    "cnpj"        => "52463011000101",
-    "siglaUF"     => "PB",
-    "schemes"     => "PL_009_V4",
-    "versao"      => '4.00',
-    "tokenIBPT"   => "AAAAAAA",
-    "CSC"         => "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G",
-    "CSCid"       => "000003",
-    "proxyConf"   => [
-        "proxyIp"   => "",
-        "proxyPort" => "",
-        "proxyUser" => "",
-        "proxyPass" => ""
-    ]
-];
-$configJson = json_encode($arr);
-$pfxcontent = file_get_contents('chave.pfx');
-$password = '207100';
+/**
+ * Retorna o JSON de configuração.
+ */
+function getConfigJson()
+{
+    $config = [
+        "atualizacao" => (new \DateTime())->format('Y-m-d\TH:i:sP'),
+        "tpAmb"       => 2, // Homologação
+        "razaosocial" => "ALUSKA VANESSA BARBOSA DE OLIVEIRA",
+        "cnpj"        => "37715148000112",
+        "ie"          => "163700044",
+        "siglaUF"     => "PB",
+        "schemes"     => "PL_009_V4",
+        "versao"      => "4.00",
+        "tokenIBPT"   => "AAAAAAA",
+        "CSC"         => "4AC2A781-AC41-BF54-5E1A-7BBFA3BF7E37",
+        "CSCid"       => "000002",
+        "proxyConf"   => [
+            "proxyIp"   => "",
+            "proxyPort" => "",
+            "proxyUser" => "",
+            "proxyPass" => ""
+        ]
+    ];
+    return json_encode($config);
+}
 
-$tools = new Tools($configJson, Certificate::readPfx($pfxcontent, $password));
-$tools->disableCertValidation(true); //tem que desabilitar
-$tools->model('65');
+/**
+ * Retorna o certificado digital lido a partir do arquivo PFX.
+ */
+function getCertificate()
+{
+    $pfxcontent = file_get_contents('certificado.pfx');
+    $password = '';
+    return Certificate::readPfx($pfxcontent, $password);
+}
 
-try {
-    $make = new Make();
+/**
+ * Função para gerar o XML da NFC-e.
+ */
+function generateXML()
+{
+    $nfce = new Make();
 
+    // TAG infNFe (obrigatória)
+    $info = new \stdClass();
+    $info->Id = ''; // Se não for informado, será gerado automaticamente
+    $info->versao = '4.00';
+    $nfce->taginfNFe($info);
 
-    //infNFe OBRIGATÓRIA
-    $infNFe_ = new \stdClass();
-    $infNFe_->Id = '';
-    $infNFe_->versao = '4.00';
-    $nfce = $make->taginfNFe($infNFe_);
+    // TAG IDE
+    $ide = new \stdClass();
+    $ide->cUF = 25;
+    $ide->cNF = '01001001';
+    $ide->natOp = 'VENDA';
+    $ide->mod = 65;
+    $ide->serie = 1;
+    $ide->nNF = 2023345;
+    $ide->dhEmi = (new \DateTime())->format('Y-m-d\TH:i:sP');
+    $ide->dhSaiEnt = null;
+    $ide->tpNF = 1;
+    $ide->idDest = 1;
+    $ide->cMunFG = 2507507;
+    $ide->tpImp = 4;
+    $ide->tpEmis = 1;
+    $ide->cDV = 2;
+    $ide->tpAmb = 2;
+    $ide->finNFe = 1;
+    $ide->indFinal = 1;
+    $ide->indPres = 4;
+    $ide->indIntermed = 0;
+    $ide->procEmi = 0;
+    $ide->verProc = '1.0.1';
+    $ide->dhCont = null;
+    $ide->xJust = null;
+    $nfce->tagide($ide);
 
-    //ide OBRIGATÓRIA
-    $ide_ = new \stdClass();
-    $ide_->cUF = 25; //PB
-    $ide_->cNF = '00000025'; //Aqui deve ser gerado um número único de NFce
-    $ide_->natOp = 'VENDA CONSUMIDOR';
-    $ide_->mod = 65;
-    $ide_->serie = 1;
-    $ide_->nNF = 2025;
-    $ide_->dhEmi = (new \DateTime())->format('Y-m-d\TH:i:sP');
-    $ide_->dhSaiEnt = null;
-    $ide_->tpNF = 1;
-    $ide_->idDest = 1; 
-    $ide_->cMunFG = 2504009; //CAMPINA GRANDE
-    $ide_->tpImp = 4;
-    $ide_->tpEmis = 1;
-    $ide_->cDV = 2;
-    $ide_->tpAmb = 2; //Homologação
-    $ide_->finNFe = 1;
-    $ide_->indFinal = 1;
-    $ide_->indPres = 4;
-    $ide_->indIntermed = 0; 
-    $ide_->procEmi = 0;
-    $ide_->verProc = '1.0.1';
-    $ide_->dhCont = null;
-    $ide_->xJust = null;
-
-    $nfce = $make->tagIde($ide_);
-
-    //emit OBRIGATÓRIA
+    // TAG EMITENTE
     $emit = new \stdClass();
-    $emit->CNPJ = '52463011000101';
-    $emit->xNome = 'MANALYTICS INTELIGENCIA ARTIFICIAL LTDA';
-    $emit->xFant = 'MANALYTICS';
-    $emit->IE = '164780319';
+    $emit->CNPJ = '37715148000112';
+    $emit->xNome = 'ALUSKA VANESSA BARBOSA DE OLIVEIRA';
+    $emit->xFant = 'ALUPASTS ARTESANAL';
+    $emit->IE = '163700044';
     $emit->IEST = null;
-    //$emit->IM = '11889016';
-    $emit->CNAE = '4642701';
+    $emit->CNAE = '4729699';
     $emit->CRT = 1;
-    $nfce = $make->tagemit($emit);
+    $nfce->tagemit($emit);
 
-    //enderEmit OBRIGATÓRIA
+    // TAG ENDEREÇO DO EMITENTE
     $enderEmit = new \stdClass();
-    $enderEmit->xLgr = 'RUA JOAO MACHADO';
-    $enderEmit->nro = '412';
+    $enderEmit->xLgr = 'Rua Ozório Paes Carvalho Rocha';
+    $enderEmit->nro = '17';
     $enderEmit->xCpl = '';
-    $enderEmit->xBairro = 'PRATA';
-    $enderEmit->cMun = 2504009;
-    $enderEmit->xMun = 'CAMPINA GRANDE';
+    $enderEmit->xBairro = 'Tambau';
+    $enderEmit->cMun = 2507507;
+    $enderEmit->xMun = 'JOAO PESSOA';
     $enderEmit->UF = 'PB';
-    $enderEmit->CEP = '58400510';
+    $enderEmit->CEP = '58039-090';
     $enderEmit->cPais = 1058;
     $enderEmit->xPais = 'Brasil';
-    $enderEmit->fone = '8332472632';
-    $nfce = $make->tagenderEmit($enderEmit);
+    $enderEmit->fone = '83993327492';
+    $nfce->tagenderEmit($enderEmit);
 
-    //dest OPCIONAL
+    // TAG DESTINATÁRIO
     $dest = new \stdClass();
     $dest->xNome = 'MAELSON M DE LIMA';
-    //$dest->CNPJ = '01234123456789'; //AQUI PODE SER CNPJ OU CPF
     $dest->CPF = '07657174412';
-    //$dest->idEstrangeiro = 'AB1234';
     $dest->indIEDest = 9;
-    //$dest->IE = '';
-    //$dest->ISUF = '12345679';
-    //$dest->IM = 'XYZ6543212';
     $dest->email = 'mqmaellson39@gmail.com';
-    $nfce = $make->tagdest($dest);
+    $nfce->tagdest($dest);
 
-    //enderDest OPCIONAL
+    // TAG ENDEREÇO DO DESTINATÁRIO
     $enderDest = new \stdClass();
     $enderDest->xLgr = 'RUA FERNANDO BARBOSA DE MELO';
     $enderDest->nro = '510';
@@ -130,192 +140,208 @@ try {
     $enderDest->cPais = 1058;
     $enderDest->xPais = 'Brasil';
     $enderDest->fone = '83996108796';
-    $nfce = $make->tagenderDest($enderDest);
+    $nfce->tagenderDest($enderDest);
 
+    // TAG PRODUTO (obrigatória)
+    $produto = new \stdClass();
+    $produto->item = 1;
+    $produto->cProd = '146';
+    $produto->cEAN = "SEM GTIN";
+    $produto->xProd = 'CESTA CORPORATIVA PERSONALIZADA';
+    $produto->NCM = 21069040;
+    $produto->EXTIPI = '';
+    $produto->CFOP = 5102;
+    $produto->uCom = 'UNID';
+    $produto->qCom = 1;
+    $produto->vUnCom = 592.00;
+    $produto->vProd = 592.00;
+    $produto->cEANTrib = "SEM GTIN";
+    $produto->uTrib = 'UNID';
+    $produto->qTrib = 1;
+    $produto->vUnTrib = 592.00;
+    $produto->vFrete = 10.00;
+    $produto->indTot = 1;
+    $nfce->tagprod($produto);
 
-    //prod OBRIGATÓRIA
-    $std = new \stdClass();
-    $std->item = 1;
-    $std->cProd = '1111';
-    $std->cEAN = "SEM GTIN";
-    $std->xProd = 'CAMISETA REGATA GG';
-    $std->NCM = 61052000; // num
-    //$std->cBenef = 'ab222222';
-    $std->EXTIPI = '';
-    $std->CFOP = 5101;
-    $std->uCom = 'UNID';
-    $std->qCom = 1;
-    $std->vUnCom = 100.00;
-    $std->vProd = 100.00;
-    $std->cEANTrib = "SEM GTIN"; //'6361425485451';
-    $std->uTrib = 'UNID';
-    $std->qTrib = 1;
-    $std->vUnTrib = 100.00;
-    //$std->vFrete = 0.00;
-    //$std->vSeg = 0;
-    //$std->vDesc = 0;
-    //$std->vOutro = 0;
-    $std->indTot = 1;
-    //$std->xPed = '12345';
-    //$std->nItemPed = 1;
-    //$std->nFCI = '12345678-1234-1234-1234-123456789012';
-    $prod = $make->tagprod($std);
+    // Produto adicional (opcional)
+    $info_prod = new \stdClass();
+    $info_prod->item = 1;
+    $info_prod->infAdProd = 'CESTA DE PRESENTS GOLD';
+    $nfce->taginfAdProd($info_prod);
 
-    $tag = new \stdClass();
-    $tag->item = 1;
-    $tag->infAdProd = 'DE POLIESTER 100%';
-    $make->taginfAdProd($tag);
+    // TAG IMPOSTO
+    $imposto = new \stdClass();
+    $imposto->item = 1;
+    $imposto->vTotTrib = 602.00;
+    $nfce->tagimposto($imposto);
 
-    //Imposto
-    $std = new stdClass();
-    $std->item = 1; //item da NFe
-    $std->vTotTrib = 25.00;
-    $make->tagimposto($std);
+    // TAG ICMS-SN (para NFC-e)
+    $icmsSN_Prod = new \stdClass();
+    $icmsSN_Prod->item = 1;
+    $icmsSN_Prod->orig = 0;
+    $icmsSN_Prod->CSOSN = '102';
+    $icmsSN_Prod->pCredSN = 0.00;
+    $icmsSN_Prod->vCredICMSSN = 0.00;
+    $nfce->tagICMSSN($icmsSN_Prod);
 
-    $std = new stdClass();
-    $std->item = 1; //item da NFe
-    $std->orig = 0;
-    $std->CSOSN = '102';
-    $std->pCredSN = 0.00;
-    $std->vCredICMSSN = 0.00;
-    $std->modBCST = null;
-    $std->pMVAST = null;
-    $std->pRedBCST = null;
-    $std->vBCST = null;
-    $std->pICMSST = null;
-    $std->vICMSST = null;
-    $std->vBCFCPST = null; //incluso no layout 4.00
-    $std->pFCPST = null; //incluso no layout 4.00
-    $std->vFCPST = null; //incluso no layout 4.00
-    $std->vBCSTRet = null;
-    $std->pST = null;
-    $std->vICMSSTRet = null;
-    $std->vBCFCPSTRet = null; //incluso no layout 4.00
-    $std->pFCPSTRet = null; //incluso no layout 4.00
-    $std->vFCPSTRet = null; //incluso no layout 4.00
-    $std->modBC = null;
-    $std->vBC = null;
-    $std->pRedBC = null;
-    $std->pICMS = null;
-    $std->vICMS = null;
-    $std->pRedBCEfet = null;
-    $std->vBCEfet = null;
-    $std->pICMSEfet = null;
-    $std->vICMSEfet = null;
-    $std->vICMSSubstituto = null;
-    $make->tagICMSSN($std);
+    // TAG PIS
+    $pis_prod = new \stdClass();
+    $pis_prod->item = 1;
+    $pis_prod->CST = '99';
+    $pis_prod->vPIS = 0.00;
+    $pis_prod->qBCProd = 0.0;
+    $pis_prod->vAliqProd = 0.0;
+    $nfce->tagPIS($pis_prod);
 
-    //PIS
-    $std = new stdClass();
-    $std->item = 1; //item da NFe
-    $std->CST = '99';
-    //$std->vBC = 1200;
-    //$std->pPIS = 0;
-    $std->vPIS = 0.00;
-    $std->qBCProd = 0;
-    $std->vAliqProd = 0;
-    $pis = $make->tagPIS($std);
+    // TAG COFINS
+    $cofins_prod = new \stdClass();
+    $cofins_prod->item = 1;
+    $cofins_prod->CST = '99';
+    $cofins_prod->vBC = 0.00;
+    $cofins_prod->pCOFINS = null;
+    $cofins_prod->vCOFINS = 0.00;
+    $cofins_prod->qBCProd = 0;
+    $cofins_prod->vAliqProd = 0.00;
+    $nfce->tagCOFINS($cofins_prod);
 
-    //COFINS
-    $std = new stdClass();
-    $std->item = 1; //item da NFe
-    $std->CST = '99';
-    $std->vBC = null;
-    $std->pCOFINS = null;
-    $std->vCOFINS = 0.00;
-    $std->qBCProd = 0;
-    $std->vAliqProd = 0;
-    $make->tagCOFINS($std);
+    // TAG TOTAL
+    $icmsTotal = new \stdClass();
+    $nfce->tagicmstot($icmsTotal);
 
-    //icmstot OBRIGATÓRIA
-    $std = new \stdClass();
-    //$std->vBC = 100;
-    //$std->vICMS = 0;
-    //$std->vICMSDeson = 0;
-    //$std->vFCPUFDest = 0;
-    //$std->vICMSUFDest = 0;
-    //$std->vICMSUFRemet = 0;
-    //$std->vFCP = 0;
-    //$std->vBCST = 0;
-    //$std->vST = 0;
-    //$std->vFCPST = 0;
-    //$std->vFCPSTRet = 0.23;
-    //$std->vProd = 2000;
-    //$std->vFrete = 100;
-    //$std->vSeg = null;
-    //$std->vDesc = null;
-    //$std->vII = 12;
-    //$std->vIPI = 23;
-    //$std->vIPIDevol = 9;
-    //$std->vPIS = 6;
-    //$std->vCOFINS = 25;
-    //$std->vOutro = null;
-    //$std->vNF = 2345.83;
-    //$std->vTotTrib = 798.12;
-    $icmstot = $make->tagicmstot($std);
+    // TAG TRANSPORTE
+    $transport = new \stdClass();
+    $transport->modFrete = 9;
+    $nfce->tagtransp($transport);
 
-    //transp OBRIGATÓRIA
-    $std = new \stdClass();
-    $std->modFrete = 0;
-    $transp = $make->tagtransp($std);
+    // TAG PAGAMENTO
+    $troco = new \stdClass();
+    $troco->vTroco = 0;
+    $nfce->tagpag($troco);
 
+    // TAG DETALHE DO PAGAMENTO
+    $detalhe_pagamento = new \stdClass();
+    $detalhe_pagamento->indPag = 0;
+    $detalhe_pagamento->tPag = '01';
+    $detalhe_pagamento->vPag = 602.00;
+    $nfce->tagdetpag($detalhe_pagamento);
 
-    //pag OBRIGATÓRIA
-    $std = new \stdClass();
-    $std->vTroco = 0;
-    $pag = $make->tagpag($std);
+    // TAG INFORMAÇÕES ADICIONAIS
+    $info_add = new \stdClass();
+    $info_add->infAdFisco = '';
+    $info_add->infCpl = '';
+    $nfce->taginfadic($info_add);
 
-    //detPag OBRIGATÓRIA
-    $std = new \stdClass();
-    $std->indPag = 1;
-    $std->tPag = '01';
-    $std->vPag = 100.00;
-    $detpag = $make->tagdetpag($std);
+    // TAG RESPONSÁVEL TÉCNICO
+    $respTecnico = new \stdClass();
+    $respTecnico->CNPJ = '52463011000101';
+    $respTecnico->xContato = 'MANALYTICS';
+    $respTecnico->email = 'maelson@manalyticsai.com';
+    $respTecnico->fone = '83996108796';
+    $nfce->taginfRespTec($respTecnico);
 
-    //infadic
-    $std = new \stdClass();
-    $std->infAdFisco = '';
-    $std->infCpl = '';
-    $info = $make->taginfadic($std);
+    // Gera e retorna o XML final
+    return $nfce->getXML();
+}
 
-    $std = new stdClass();
-    $std->CNPJ = '52463011000101'; //CNPJ da pessoa jurídica responsável pelo sistema utilizado na emissão do documento fiscal eletrônico
-    $std->xContato = 'MANALYTICS'; //Nome da pessoa a ser contatada
-    $std->email = 'maelson@manalyticsai.com'; //E-mail da pessoa jurídica a ser contatada
-    $std->fone = '83996108796'; //Telefone da pessoa jurídica/física a ser contatada
-    //$std->CSRT = 'G8063VRTNDMO886SFNK5LDUDEI24XJ22YIPO'; //Código de Segurança do Responsável Técnico
-    //$std->idCSRT = '01'; //Identificador do CSRT
-    $make->taginfRespTec($std);
+/**
+ * Função para assinar o XML.
+ */
+function signXML($xml)
+{
+    $configJson = getConfigJson();
+    $certificate = getCertificate();
+    $tools = new Tools($configJson, $certificate);
+    $tools->model('65');
 
-    $make->monta();
-    $xml = $make->getXML();
+    try {
+        return $tools->signNFe($xml);
+    } catch (\Exception $e) {
+        exit("Erro na assinatura: " . $e->getMessage());
+    }
+}
 
-    //Assina
-    $xml = $tools->signNFe($xml);
+/**
+ * Função para enviar o lote e retornar o Tools e o número do recibo.
+ */
+function sendLot($xmlAssinado)
+{
+    $configJson = getConfigJson();
+    $certificate = getCertificate();
+    $tools = new Tools($configJson, $certificate);
+    $tools->model('65');
 
-    //Envia para a Sefaz
-    $idLote = str_pad(1, 15, '0', STR_PAD_LEFT); // Identificador do lote
-    $response = $tools->sefazEnviaLote([$xml], $idLote, 1); //1 = envio síncrono
+    // Gera um ID de lote único (garanta que seja único, por exemplo, usando mt_rand e time())
+    $idLote = str_pad(mt_rand(2561, 9900) . time(), 15, '0', STR_PAD_LEFT);
 
-    $stdCl = new Standardize($response);
-    $respObj = $stdCl->toStd();
-    
-    if ($respObj->cStat != 104) {
-        throw new \Exception(sprintf('Lote não enviado (%s - %s)', $respObj->cStat, $respObj->xMotivo));
+    try {
+        $resp = $tools->sefazEnviaLote([$xmlAssinado], $idLote, 1);
+        $st = new Standardize();
+        $std = $st->toStd($resp);
+
+        if ($std->cStat != 103) {
+            exit("Erro no envio do lote: [$std->cStat] $std->xMotivo");
+        }
+
+        return [$tools, $std->infRec->nRec];
+    } catch (\Exception $e) {
+        exit("Erro no envio do lote: " . $e->getMessage());
+    }
+}
+
+/**
+ * Função para consultar o recibo e obter o protocolo.
+ */
+function consultRecibo($tools, $recibo)
+{
+    $st = new Standardize();
+    $tentativas = 5;
+    $protocolo = null;
+
+    while ($tentativas > 0) {
+        try {
+            $protocoloResp = $tools->sefazConsultaRecibo($recibo);
+            $protocoloStd = $st->toStd($protocoloResp);
+
+            if (isset($protocoloStd->protNFe->infProt->nProt)) {
+                $protocolo = $protocoloStd->protNFe->infProt->nProt;
+                break;
+            }
+        } catch (\Exception $e) {
+            echo "Erro ao consultar o recibo: " . $e->getMessage() . "\n";
+        }
+        sleep(3);
+        $tentativas--;
     }
 
-    if ($respObj->protNFe->infProt->cStat != 100) {
-        throw new \Exception(sprintf('Nfce não autorizada (%s - %s)', $respObj->protNFe->infProt->cStat, $respObj->protNFe->infProt->xMotivo));
+    if (!$protocolo) {
+        exit("Não foi possível obter o protocolo da nota após várias tentativas.");
     }
 
-    //Salva o protocolo de autorização no xml
-    $authorizedXml = Complements::toAuthorize($xml, $response);
+    return $protocolo;
+}
 
-    //Gera o arquivo xml e salva
-    file_put_contents(__DIR__. '/nfce_protocolado.xml', $authorizedXml);
-    
-    header('Content-Type: application/xml; charset=utf-8');
-    echo $authorizedXml;
+// Execução do fluxo
+try {
+    // 1. Gerar o XML
+    $xml = generateXML();
+    echo "XML gerado com sucesso.\n";
+
+    // 2. Assinar o XML
+    $xmlAssinado = signXML($xml);
+    echo "XML assinado com sucesso.\n";
+
+    // 3. Enviar o lote e obter o recibo
+    list($tools, $recibo) = sendLot($xmlAssinado);
+    echo "Recibo obtido: $recibo\n";
+
+    // 4. Consultar o recibo para obter o protocolo
+    $protocolo = consultRecibo($tools, $recibo);
+    echo "Protocolo da nota: $protocolo\n";
+
+    // 5. Gerar o XML final autorizado
+    $xmlFinal = Complements::toAuthorize($xmlAssinado, $protocolo);
+    header('Content-type: text/xml; charset=UTF-8');
+    echo $xmlFinal;
 } catch (\Exception $e) {
-    echo $e->getMessage();
+    echo "Erro no processo: " . $e->getMessage();
 }
